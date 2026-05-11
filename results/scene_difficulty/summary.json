@@ -1,0 +1,58 @@
+{
+  "best_model": "gradient_boosting",
+  "hard_threshold": 0.6744882462546732,
+  "train_samples": 69863,
+  "val_samples": 10000,
+  "train_hard_rate": 0.3500565392267724,
+  "val_hard_rate": 0.3429,
+  "metrics": [
+    {
+      "model": "gradient_boosting",
+      "accuracy": 0.8565,
+      "precision": 0.7694594594594595,
+      "recall": 0.8302712160979877,
+      "f1": 0.7987094964230608,
+      "train_samples": 69863,
+      "val_samples": 10000,
+      "hard_threshold": 0.6744882462546732,
+      "train_hard_rate": 0.3500565392267724,
+      "val_hard_rate": 0.3429
+    },
+    {
+      "model": "logistic_regression",
+      "accuracy": 0.8475,
+      "precision": 0.7406471183013145,
+      "recall": 0.8544765237678623,
+      "f1": 0.7935003385240352,
+      "train_samples": 69863,
+      "val_samples": 10000,
+      "hard_threshold": 0.6744882462546732,
+      "train_hard_rate": 0.3500565392267724,
+      "val_hard_rate": 0.3429
+    },
+    {
+      "model": "decision_tree",
+      "accuracy": 0.7865,
+      "precision": 0.6513804398689752,
+      "recall": 0.8118985126859143,
+      "f1": 0.7228352589900039,
+      "train_samples": 69863,
+      "val_samples": 10000,
+      "hard_threshold": 0.6744882462546732,
+      "train_hard_rate": 0.3500565392267724,
+      "val_hard_rate": 0.3429
+    },
+    {
+      "model": "random_forest",
+      "accuracy": 0.7858,
+      "precision": 0.6744375169422607,
+      "recall": 0.7255759696704579,
+      "f1": 0.6990727732509132,
+      "train_samples": 69863,
+      "val_samples": 10000,
+      "hard_threshold": 0.6744882462546732,
+      "train_hard_rate": 0.3500565392267724,
+      "val_hard_rate": 0.3429
+    }
+  ]
+}

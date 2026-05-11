@@ -1,0 +1,7 @@
+ijson
+matplotlib
+numpy
+pandas
+pillow
+scikit-learn
+

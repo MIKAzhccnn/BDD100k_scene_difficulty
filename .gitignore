@@ -1,0 +1,20 @@
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Local datasets and generated training runs are too large for the repo.
+datasets/
+runs/
+scripts/runs/
+logs/
+
+# Model checkpoints and weights.
+*.pt
+*.pth
+*.onnx
+
+# Local environment files.
+.env
+.venv/
+venv/
+

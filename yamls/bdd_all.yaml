@@ -1,0 +1,16 @@
+# Auto-generated
+path: /home/zixuan/Projects/moca/datasets/bdd_yolo/all
+train: images/train
+val: images/val
+
+names:
+  - person
+  - rider
+  - car
+  - truck
+  - bus
+  - train
+  - motorcycle
+  - bicycle
+  - traffic light
+  - traffic sign
