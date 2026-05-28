@@ -30,7 +30,7 @@ MODEL_COLORS = {
     "RT-DETR": "#7EAE8B",
 }
 
-# 显示名直映（在启发式之前尝试）
+# Direct mapping for display names (try before heuristics)
 MODEL_NAME_MAP = {
     "yolo": "YOLO (all)",
     "yolo_all": "YOLO (all)",
@@ -44,21 +44,21 @@ MODEL_NAME_MAP = {
 
 def normalize_model_display(s: str) -> str:
     """
-    将各种模型名称/路径归一化为用于图例的展示名。
-    例：'runs/.../yv8n_all.../best.pt' -> 'YOLO (all)'
-        'rtdetr_all' -> 'RT-DETR (all)'
-        'faster_rcnn' -> 'FRCNN (all)'
+    Normalize various model names/paths to display names for legends.
+    Examples: 'runs/.../yv8n_all.../best.pt' -> 'YOLO (all)'
+              'rtdetr_all' -> 'RT-DETR'
+              'faster_rcnn' -> 'FRCNN'
     """
     t = str(s).strip()
     low = t.lower()
 
-    # 先尝试直映
+    # First try direct mapping
     if t in MODEL_NAME_MAP:
         return MODEL_NAME_MAP[t]
     if low in MODEL_NAME_MAP:
         return MODEL_NAME_MAP[low]
 
-    # 启发式归一化
+    # Heuristic normalization
     if any(k in low for k in ["rtdetr", "rt-detr", "rt_detr"]):
         return "RT-DETR"
     if any(k in low for k in ["frcnn", "fasterrcnn", "faster-rcnn", "faster_rcnn"]):
@@ -69,7 +69,7 @@ def normalize_model_display(s: str) -> str:
     ]):
         return "YOLO_v8n"
 
-    # 兜底：返回原始（很少发生）
+    # Fallback: return original (rare)
     return t
 
 def pick_col(d: pd.DataFrame, candidates, default=None):
@@ -80,7 +80,7 @@ def pick_col(d: pd.DataFrame, candidates, default=None):
 
 def load_and_normalize(csv_path: Path, default_model_name=None) -> pd.DataFrame:
     """
-    标准化列名为：
+    Normalize column names to:
     ['weather','model','mAP50','mAP50_95','p50_ms','p95_ms']
     """
     df = pd.read_csv(csv_path)
@@ -88,7 +88,7 @@ def load_and_normalize(csv_path: Path, default_model_name=None) -> pd.DataFrame:
     # weather
     weather = pick_col(df, ["weather", "cond", "condition", "Condition", "label"])
     if weather is None:
-        raise ValueError(f"{csv_path} 缺少 weather/cond 列")
+        raise ValueError(f"{csv_path} is missing a weather/cond column")
 
     # model
     model_series = pick_col(df, ["model", "Model"])
@@ -111,16 +111,16 @@ def load_and_normalize(csv_path: Path, default_model_name=None) -> pd.DataFrame:
         "p95_ms": p95 if p95 is not None else np.nan,
     })
 
-    # 归一化模型显示名（解决 YOLO 路径长的问题）
+    # Normalize model display names (avoid long YOLO path strings)
     out["model"] = out["model"].map(normalize_model_display)
     return out
 
 def merge_dfs(dfs):
     df = pd.concat(dfs, ignore_index=True)
-    # 只保留指定天气并排序
+    # Keep only specified weathers and sort
     df = df[df["weather"].isin(WEATHER_ORDER)].copy()
     df["weather"] = pd.Categorical(df["weather"], categories=WEATHER_ORDER, ordered=True)
-    # 同一天气同一模型如果有重复，取均值
+    # If duplicates exist for same weather/model, take the mean
     df = df.groupby(["weather", "model"], as_index=False, observed=False).mean(numeric_only=True)
     return df
 
@@ -132,7 +132,7 @@ def plot_grouped_bars(ax, data_pivot, title, ylabel, ylim=None, annotate=False, 
     models += [m for m in data_pivot.columns if m not in models]
     x = np.arange(len(data_pivot.index))
     n = len(models)
-    width = min(0.8 / max(1, n), 0.22)  # 每根柱宽度
+    width = min(0.8 / max(1, n), 0.22)  # width per bar
     for i, m in enumerate(models):
         vals = data_pivot[m].values
         ax.bar(x + (i - (n - 1) / 2) * width, vals, width=width, label=m,
@@ -159,7 +159,7 @@ def main():
     ap.add_argument("--outdir", default="results/figs")
     ap.add_argument("--annotate", action="store_true", help="Annotate bars with values")
     ap.add_argument("--acc_legend_top", action="store_true",
-                    help="(可选)也给 ACC 子图各自保留图例；默认使用上方全局图例")
+                    help="(optional) also keep legends for ACC subplots; default uses a global legend above")
     args = ap.parse_args()
 
     outdir = Path(args.outdir); outdir.mkdir(parents=True, exist_ok=True)
@@ -188,7 +188,7 @@ def main():
         plot_grouped_bars(axes[1], m5095_pivot, "mAP@[0.50:0.95] (by weather)", "mAP50–95", ylim=(0, 1.0),
                           annotate=args.annotate, add_legend=args.acc_legend_top)
 
-        # 移除子图内图例，统一放到图外上方
+        # Remove legends inside subplots and place a unified legend above the figure
         if not args.acc_legend_top:
             for ax in axes:
                 leg = ax.get_legend()
@@ -204,19 +204,19 @@ def main():
         print(f"[OK] ACC figure -> {acc_path}")
         plt.close(fig)
     else:
-        print("[WARN] 没有可用的 mAP 列，跳过 ACC 图。")
+        print("[WARN] No available mAP columns, skipping ACC plot.")
 
     # ---------- LATENCY：p50 ----------
     lat_df = all_df[["weather", "model", "p50_ms", "p95_ms"]].copy()
     if lat_df["p50_ms"].notna().any():
         p50_pivot = lat_df.pivot(index="weather", columns="model", values="p50_ms").sort_index()
-        # 误差线用 p95 - p50（如果存在）
+        # Use p95 - p50 for error bars (if available)
         err = None
         if lat_df["p95_ms"].notna().any():
             p95_pivot = lat_df.pivot(index="weather", columns="model", values="p95_ms").sort_index()
             err = (p95_pivot - p50_pivot).clip(lower=0)
 
-        # 绘图（图例放右侧图外）
+        # Plot (legend placed outside on the right)
         fig, ax = plt.subplots(figsize=(10, 5), constrained_layout=True)
         models = [m for m in MODEL_ORDER if m in p50_pivot.columns]
         models += [m for m in p50_pivot.columns if m not in models]
@@ -239,7 +239,7 @@ def main():
         ax.set_ylabel("Latency (ms, p50)")
         ax.grid(axis="y", linestyle="--", alpha=0.3)
 
-        # 图外右侧图例
+        # Legend placed outside on the right
         ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
 
         lat_path = outdir / "latency_by_weather_all_models.png"
@@ -247,9 +247,9 @@ def main():
         print(f"[OK] LAT figure -> {lat_path}")
         plt.close(fig)
     else:
-        print("[WARN] 没有 p50_ms 列，跳过 LAT 图。")
+        print("[WARN] No p50_ms column; skipping LAT plot.")
 
-    print(f"[OK] 合并表 -> {outdir/'combined_all_models_by_weather.csv'}")
+    print(f"[OK] Combined table -> {outdir/'combined_all_models_by_weather.csv'}")
 
 if __name__ == "__main__":
     main()

@@ -75,7 +75,7 @@ def main():
         # val metrics
         val_res = model.val(data=str(ypath), imgsz=args.imgsz, batch=args.batch,
                             device=args.device, split='val', verbose=False)
-        # 兼容不同字段名
+        # Handle different field names
         try:
             m50   = float(getattr(val_res.box, "map50"))
             m5095 = float(getattr(val_res.box, "map"))

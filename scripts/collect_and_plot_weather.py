@@ -32,7 +32,7 @@ WEATHER_ALIASES = {
     "partly-cloudy": "partly_cloudy",
 }
 
-# columns we try to detect（不区分大小写）
+# columns we try to detect (case-insensitive)
 CANON_COLS = {
     "map50":   ["map50", "mAP50", "mAP_50", "metrics/mAP50(B)", "metrics/mAP50"],
     "map5095": ["map50_95", "mAP50_95", "mAP50-95", "mAP_50:95", "metrics/mAP50-95(B)", "metrics/mAP50-95", "mAP"],
@@ -52,7 +52,7 @@ def norm_weather_from_name(name: str):
     for w in WEATHERS:
         if w in s:
             return w
-    # 兼容 alias
+    # Support aliases
     for alias, canon in WEATHER_ALIASES.items():
         if alias in s:
             return canon
@@ -60,16 +60,16 @@ def norm_weather_from_name(name: str):
 
 def group_from_run_name(name: str):
     s = name.lower()
-    # 包含 ft/fine-tune 字样，且带天气名 → 视为按天气微调
+    # If the name contains ft/fine-tune and includes a weather, treat as per-weather fine-tune
     if ("ft" in s or "fine" in s) and norm_weather_from_name(s):
         return "Per-weather FT"
-    # 其他 → 视为 all-weather 基础模型
+    # Otherwise -> treat as all-weather base model
     return "All-weather"
 
 def read_results_csv(csv_path: Path):
     """
-    Ultralytics results.csv: 多行（每个 epoch），这里取最后一行。
-    也兼容只有一行的情况。
+    Ultralytics results.csv: multiple rows (one per epoch); take the last row.
+    Also supports single-row files.
     """
     df = pd.read_csv(csv_path)
     last = df.iloc[-1:].copy()
@@ -77,21 +77,21 @@ def read_results_csv(csv_path: Path):
 
 def maybe_read_latency(run_dir: Path):
     """
-    可选：读取延迟统计文件（如果你有单独脚本产出的 latency CSV）。
-    文件名匹配 *latency*.csv；列名尽量兼容 CANON_COLS。
-    若不存在则返回 None。
+    Optional: read latency statistics file (if you have a separate script that produced a latency CSV).
+    Filenames matching *latency*.csv; column names should be compatible with CANON_COLS.
+    Returns None if not found.
     """
     cand = list(run_dir.glob("*latency*.csv"))
     if not cand:
         return None
     df = pd.read_csv(cand[0])
-    # 只取第一行或最后一行都可，这里取第一行
+    # Either take the first or the last row; here we take the first row
     return df.iloc[:1].copy()
 
 def canonicalize_row(df_like: pd.DataFrame):
     """
-    从一行 DataFrame 中提取 map50 / map50_95 / p50_ms / p95_ms
-    缺失的列返回 NaN
+    Extract map50 / map50_95 / p50_ms / p95_ms from a single-row DataFrame.
+    Missing columns return NaN.
     """
     row = df_like.iloc[0]
     def pick(aliases):
@@ -114,11 +114,11 @@ def collect_runs(runs_dir: Path):
         if not res_csv.exists():
             continue
 
-        # 训练/验证结果
+        # training/validation results
         last = read_results_csv(res_csv)
         canon = canonicalize_row(last)
 
-        # 可选的延迟文件（若有则覆盖 p50/p95）
+        # Optional latency file (if present, override p50/p95)
         lat = maybe_read_latency(run)
         if lat is not None:
             lat_vals = canonicalize_row(lat)
@@ -141,8 +141,8 @@ def collect_runs(runs_dir: Path):
     return df
 
 def order_weathers(values):
-    # 以预设顺序排序；其他未知天气放最后
-    seen = list(dict.fromkeys(values))  # 保序去重
+    # Order by preset sequence; put unknown weathers last
+    seen = list(dict.fromkeys(values))  # preserve order and deduplicate
     ordered = [w for w in WEATHERS if w in seen] + [w for w in seen if w not in WEATHERS]
     return ordered
 
@@ -172,7 +172,7 @@ def grouped_bar(ax, x_labels, series_dict, title, ylabel, ylim=None, fmt="{:.3f}
 def plot_all(df: pd.DataFrame, outdir: Path):
     if df.empty:
         return
-    # 去重：对 (weather, group) 取 mAP50_95 最优的一条
+    # Deduplicate: keep the entry with highest mAP50_95 per (weather, group)
     use = df.copy()
     use["weather_norm"] = use["weather"].astype(str)
     use.sort_values(["weather_norm", "group", "mAP50_95"], ascending=[True, True, False], inplace=True)
@@ -200,7 +200,7 @@ def plot_all(df: pd.DataFrame, outdir: Path):
     grouped_bar(ax, weathers, pick("mAP50_95"), "mAP50-95 by Weather", "mAP50-95", fmt="{:.3f}")
     fig.tight_layout(); fig.savefig(outdir / "map5095_by_weather.png", dpi=200)
 
-    # Latency（同一图里画 p50 & p95；优先 Per-weather FT，否则 All-weather）
+    # Latency (plot p50 & p95 on the same figure; prefer Per-weather FT, otherwise All-weather)
     chosen = []
     for w in weathers:
         sub = use[use["weather_norm"] == w]

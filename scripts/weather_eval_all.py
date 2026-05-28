@@ -2,12 +2,12 @@
 # -*- coding: utf-8 -*-
 """
 One-click evaluation:
-- 遍历 --runs_dir 下所有子模型
-- 延迟测量：
-    * 若提供 --glob_template，用它拼路径
-    * 否则用 --yaml_dir 下的 bdd_{weather}.yaml 解析 val 路径
-- 保存 latency_eval.csv
-- 汇总结果 + 画图
+- Iterate over all submodels under --runs_dir
+- Latency measurement:
+    * If --glob_template is provided, use it to build the image path
+    * Otherwise parse val paths from bdd_{weather}.yaml under --yaml_dir
+- Save latency_eval.csv
+- Summarize results and plot
 """
 
 import argparse, time, glob, math, json, yaml
@@ -66,12 +66,12 @@ def measure_latency(weights_path, images_glob, warmup=10, runs=50, imgsz=640, de
 
 def val_glob_from_yaml(yaml_dir: Path, weather: str):
     """
-    读取 scripts/yamls/bdd_{weather}.yaml：
-    - 若含 'path'，把 'val' 视为相对路径，拼到 path 下
-    - 若 'val' 是目录，自动补 /*.{jpg,png,jpeg}
-    - 若 'val' 是 glob，直接用
-    - 若 'val' 是列表，取第一项（你也可以改成都测）
-    返回：字符串 glob（至少要匹配到1张图，否则抛错）
+    Read scripts/yamls/bdd_{weather}.yaml:
+    - If it contains 'path', treat 'val' as relative to that path
+    - If 'val' is a directory, append /*.{jpg,png,jpeg}
+    - If 'val' is a glob, use it directly
+    - If 'val' is a list, take the first item (you may change to test all)
+    Returns: a glob string (must match at least one image, otherwise raise)
     """
     import yaml, os, glob
 
@@ -82,43 +82,43 @@ def val_glob_from_yaml(yaml_dir: Path, weather: str):
     with open(yaml_path, "r", encoding="utf-8") as f:
         yobj = yaml.safe_load(f) or {}
 
-    base = yobj.get("path")  # 可能是绝对或相对
+    base = yobj.get("path")  # May be absolute or relative
     val = yobj.get("val")
     if val is None:
         raise KeyError(f"No 'val' field in {yaml_path}")
 
-    # 处理列表 / 字符串
+    # Handle list / string
     if isinstance(val, list):
         val0 = val[0]
     else:
         val0 = val
 
-    # 如果是相对路径且有 base，用 base 拼起来
+    # If it's a relative path and base is present, join with base
     val_path = Path(val0)
     if not val_path.is_absolute() and base is not None:
         val_path = Path(base) / val_path
 
-    # 若是相对路径且没有 base，就相对 yaml 文件所在目录
+    # If still a relative path with no base, resolve relative to the yaml file's directory
     if not val_path.is_absolute():
         val_path = (yaml_path.parent / val_path).resolve()
 
-    # 如果是目录，补上常见扩展名
+    # If it's a directory, try common extensions
     if val_path.exists() and val_path.is_dir():
         exts = ["*.jpg", "*.jpeg", "*.png", "*.bmp"]
-        # 优先 jpg
+        # Prefer jpg first
         for pat in exts:
             g = str(val_path / pat)
             if glob.glob(g):
                 return g
-        # 都没有也返回 jpg，后续会抛错
+        # If none found, return jpg pattern (later code may raise)
         return str(val_path / "*.jpg")
 
-    # 看起来已经是 glob 或具体文件
+    # Looks like a glob or specific file
     g = str(val_path)
     if glob.glob(g):
         return g
 
-    # 如果 val 本身是个 glob，而上面的拼接让它“变绝对”失败，就直接用原始 val0 试一次
+    # If val itself is a glob and making it absolute failed, try the original val0
     if isinstance(val0, str) and any(ch in val0 for ch in "*?[]"):
         if glob.glob(val0):
             return val0
@@ -144,9 +144,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--runs_dir", default="scripts/runs/detect")
     ap.add_argument("--glob_template", default=None,
-                    help="图片路径模板，如 datasets/bdd_yolo/{weather}/val/*.jpg")
+                    help="Image path template, e.g., datasets/bdd_yolo/{weather}/val/*.jpg")
     ap.add_argument("--yaml_dir", default=None,
-                    help="yaml目录，里面有 bdd_{weather}.yaml")
+                    help="Directory containing bdd_{weather}.yaml files")
     ap.add_argument("--imgsz", type=int, default=640)
     ap.add_argument("--warmup", type=int, default=10)
     ap.add_argument("--runs", type=int, default=50)
@@ -155,7 +155,7 @@ def main():
     args = ap.parse_args()
 
     if not args.glob_template and not args.yaml_dir:
-        ap.error("必须提供 --glob_template 或 --yaml_dir 之一")
+        ap.error("You must provide either --glob_template or --yaml_dir")
 
     runs_dir = Path(args.runs_dir)
     outdir = Path(args.outdir); outdir.mkdir(parents=True, exist_ok=True)
@@ -168,7 +168,7 @@ def main():
         group = group_from_name(run.name)
         weights = run / "weights" / "best.pt"
         if not weights.exists():
-            print(f"[Skip] {run.name} 没有权重")
+            print(f"[Skip] {run.name} no weights")
             continue
 
         lat_csv = run / "latency_eval.csv"
@@ -186,7 +186,7 @@ def main():
             except Exception as e:
                 print(f"[ERR] {run.name}: {e}")
 
-        # 结果
+        # Results
         mAP50, mAP5095, p50v, p95v = np.nan, np.nan, np.nan, np.nan
         res_csv = run / "results.csv"
         if res_csv.exists():
@@ -204,7 +204,7 @@ def main():
 
     df = pd.DataFrame(rows)
     df.to_csv(args.combined_csv, index=False)
-    print(f"[OK] 汇总CSV -> {args.combined_csv}")
+    print(f"[OK] Combined CSV -> {args.combined_csv}")
 
     if df.empty: return
     weathers = [w for w in WEATHERS if w in set(df["weather"])]
@@ -229,7 +229,7 @@ def main():
     # fig.savefig(outdir/"map5095_by_weather.png", dpi=200)
 
     # === Combined Accuracy (mAP50 & mAP50-95 in one figure) ===
-    # weathers 与 pick() 已在前面定义
+    # weathers and pick() already defined above
     fig, ax = plt.subplots(figsize=(12, 6))
 
     series_acc = {
@@ -258,7 +258,7 @@ def main():
         grouped_bar(ax, dd["weather"].tolist(), latency, "YOLO V8N Latency by Weather", "Latency (ms)", fmt="{:.2f}")
         fig.savefig(outdir/"latency_by_weather.png", dpi=200)
 
-    print(f"[Done] 图表输出到 {outdir}")
+    print(f"[Done] Plots saved to {outdir}")
 
 if __name__ == "__main__":
     main()

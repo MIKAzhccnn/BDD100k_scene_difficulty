@@ -4,7 +4,7 @@
 import argparse, os, shutil, ijson
 from pathlib import Path
 
-# BDD100K 10 类（官方 detection 分类）
+# BDD100K 10 classes (official detection classes)
 BDD_CLASSES = [
     "person","rider","car","truck","bus","train",
     "motorcycle","bicycle","traffic light","traffic sign"
@@ -24,7 +24,7 @@ def link_or_copy(src: Path, dst: Path, symlink=True):
         shutil.copy2(src, dst)
 
 def xyxy_to_yolo(x1, y1, x2, y2, w, h):
-    # 统一转 float，兼容 decimal.Decimal
+    # Convert to float for compatibility with decimal.Decimal
     x1 = float(x1); y1 = float(y1); x2 = float(x2); y2 = float(y2)
     w = float(w); h = float(h)
     cx = (x1 + x2) / 2.0
@@ -57,8 +57,8 @@ def write_yolo_label(txt_path: Path, labels, img_w, img_h):
 
 def build_image_index(images_root: Path, split: str, images_size: str = "100k"):
     """
-    递归遍历 images_root/<images_size>/<split>，
-    建立 {文件名: 绝对路径} 的索引，兼容 jpg/JPG/jpeg。
+    Recursively traverse images_root/<images_size>/<split> and
+    build an index {filename: absolute_path}, supporting jpg/JPG/jpeg.
     """
     base = images_root / images_size / split
     exts = ("*.jpg", "*.JPG", "*.jpeg", "*.JPEG")
@@ -70,8 +70,8 @@ def build_image_index(images_root: Path, split: str, images_size: str = "100k"):
 
 def pick_items_by_weather(json_path, images_root, weather, max_items, images_size="100k"):
     """
-    从 JSON (train/val) 里抽取指定 weather 的样本名列表，
-    仅保留磁盘上确实存在的文件名。
+    Extract a list of sample names for the specified weather from the JSON (train/val),
+    keeping only files that actually exist on disk.
     """
     chosen = []
     split = "val" if Path(json_path).name.endswith("_val.json") else "train"
@@ -91,11 +91,11 @@ def pick_items_by_weather(json_path, images_root, weather, max_items, images_siz
     return chosen
 
 def export_split(json_path, images_root, out_root, weather, names, split, symlink=True, images_size="100k"):
-    """
-    导出指定 split（train/val）：
-      - images/{split}/ 软链或复制图片
-      - labels/{split}/ 写 YOLO 标签
-    """
+        """
+        Export the specified split (train/val):
+            - images/{split}/  symlink or copy images
+            - labels/{split}/ write YOLO labels
+        """
     split_dir_img = Path(out_root) / weather / "images" / split
     split_dir_lab = Path(out_root) / weather / "labels" / split
     ensure_dir(split_dir_img); ensure_dir(split_dir_lab)
@@ -157,7 +157,7 @@ def main():
     weathers = [w.strip() for w in args.weather.split(",") if w.strip()]
     print("weathers:", weathers)
 
-    # 为每个天气采样
+    # Sample for each weather
     picks = {}
     for w in weathers:
         tr = pick_items_by_weather(train_json, images_root, w, args.train_count, images_size=args.images_size)
@@ -165,7 +165,7 @@ def main():
         print(f"[{w}] train={len(tr)} val={len(va)}")
         picks[w] = (tr, va)
 
-    # 导出 + 写每个天气的 YAML
+    # Export + write YAML for each weather
     for w,(tr,va) in picks.items():
         export_split(train_json, images_root, out_root, w, tr, split="train", symlink=args.symlink, images_size=args.images_size)
         export_split(val_json,   images_root, out_root, w, va, split="val",   symlink=args.symlink, images_size=args.images_size)
@@ -173,7 +173,7 @@ def main():
         yaml_path = out_root.parent.parent / "yamls" / f"bdd_{safe_w}.yaml"
         write_yaml(yaml_path, Path(out_root)/w)
 
-    # 生成 all（混合基线）
+    # Generate 'all' (mixed baseline)
     all_train = sum((tr for tr,_ in picks.values()), [])
     all_val   = sum((va for _,va in picks.values()), [])
     export_split(train_json, images_root, out_root, "all", all_train, split="train", symlink=args.symlink, images_size=args.images_size)

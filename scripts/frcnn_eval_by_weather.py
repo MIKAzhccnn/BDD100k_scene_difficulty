@@ -121,10 +121,10 @@ def resolve_val_dirs(yaml_path: Path):
     if val is None:
         raise KeyError(f"No 'val' in {yaml_path}")
     val_dir = (base/val) if not Path(val).is_absolute() else Path(val)
-    # 如果是相对 yaml 的相对路径，拼起来
+    # If it's a relative path relative to the YAML, join it
     if not val_dir.exists():
         val_dir = (yaml_path.parent / val_dir).resolve()
-    # labels 目录：把路径中的 images 替换成 labels，若不存在则回退到同层级
+    # labels dir: replace 'images' with 'labels' in the path; if not present fall back to a sibling layout
     s = str(val_dir)
     if "/images/" in s:
         labels_dir = Path(s.replace("/images/","/labels/"))
@@ -141,7 +141,7 @@ def main():
     ap.add_argument("--out_csv", default="results/frcnn_by_weather.csv")
     ap.add_argument("--tmp_dir", default="results/frcnn_all/annotations_weather")
     ap.add_argument("--latency_runs", type=int, default=200)
-    ap.add_argument("--min_size", type=int, default=640)   # 与训练保持一致更公平
+    ap.add_argument("--min_size", type=int, default=640)   # Match training size for fairer evaluation
     ap.add_argument("--max_size", type=int, default=1024)
     args = ap.parse_args()
 
@@ -149,7 +149,7 @@ def main():
     all_names = yaml.safe_load(Path(args.names_yaml).read_text(encoding="utf-8"))["names"]
     num_classes = len(all_names) + 1
 
-    # 构建模型并加载权重
+    # Build model and load weights
     model = torchvision.models.detection.fasterrcnn_resnet50_fpn_v2(weights=None)
     in_feats = model.roi_heads.box_predictor.cls_score.in_features
     model.roi_heads.box_predictor = FastRCNNPredictor(in_feats, num_classes)

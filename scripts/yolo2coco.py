@@ -66,7 +66,7 @@ def convert_split(images_dir: Path, labels_dir: Path, names, out_json: Path):
                 annotations.append({
                     "id": ann_id,
                     "image_id": img_id,
-                    "category_id": cls + 1,  # COCO类id从1开始
+                    "category_id": cls + 1,  # COCO category ids start from 1
                     "bbox": [x1, y1, w, h],
                     "area": w * h,
                     "iscrowd": 0

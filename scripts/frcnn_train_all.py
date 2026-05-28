@@ -255,7 +255,7 @@ def main():
 
     tuned = False
 
-    # Case A: 新版是 dict 风格（不可调用）
+    # Case A: Newer versions use dict-style attributes (not callable)
     pre_attr = getattr(rpn, "pre_nms_top_n", None)
     post_attr = getattr(rpn, "post_nms_top_n", None)
     if isinstance(pre_attr, dict) and isinstance(post_attr, dict):
@@ -268,7 +268,7 @@ def main():
         except Exception:
             tuned = False
 
-    # Case B: 老版本是“方法”，内部读 *_train / *_test（不要覆盖方法本身！）
+    # Case B: Older versions use methods that read *_train / *_test internally (don't override the method itself!)
     if callable(getattr(rpn, "pre_nms_top_n", None)) or callable(getattr(rpn, "post_nms_top_n", None)):
         setA = _maybe_set(rpn, "pre_nms_top_n_train", 1000)
         setB = _maybe_set(rpn, "pre_nms_top_n_test",  600)
@@ -276,7 +276,7 @@ def main():
         setD = _maybe_set(rpn, "post_nms_top_n_test", 300)
         tuned = tuned or (setA or setB or setC or setD)
 
-    # Case C: 极少数版本只有单值属性（训练/测试共用）
+    # Case C: Rare versions have single-value attributes (shared for train/test)
     if (not tuned) and isinstance(pre_attr, (int, float)) and isinstance(post_attr, (int, float)):
         tuned |= _maybe_set(rpn, "pre_nms_top_n",  1000)
         tuned |= _maybe_set(rpn, "post_nms_top_n", 300)
@@ -284,7 +284,7 @@ def main():
     if not tuned:
         print("[WARN] Could not modify RPN top-N; keeping defaults.")
 
-    # ROI: 不同版本字段名可能不同
+    # ROI: field names may differ across versions
     roi_tuned = False
     if hasattr(model.roi_heads, "batch_size_per_image"):
         model.roi_heads.batch_size_per_image = 256
